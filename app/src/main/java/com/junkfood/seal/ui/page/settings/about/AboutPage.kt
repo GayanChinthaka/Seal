@@ -157,7 +157,7 @@ fun AboutPage(
                     }
                 }
 
-                // Info Cards (Mixora Style)
+                // Info Cards
                 item {
                     Card(
                         shape = RoundedCornerShape(20.dp),
@@ -167,7 +167,7 @@ fun AboutPage(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
-                            MixoraInfoRow(
+                            AboutInfoRow(
                                 title = "Developer",
                                 value = "Gayan Chinthaka",
                                 icon = Icons.Outlined.Person,
@@ -179,7 +179,7 @@ fun AboutPage(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                             )
 
-                            MixoraInfoRow(
+                            AboutInfoRow(
                                 title = "Company",
                                 value = "Pokerlanka",
                                 icon = Icons.Outlined.Business,
@@ -266,7 +266,7 @@ fun AboutPage(
 }
 
 @Composable
-private fun MixoraInfoRow(
+private fun AboutInfoRow(
     title: String,
     value: String,
     icon: ImageVector,

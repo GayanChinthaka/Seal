@@ -53,6 +53,7 @@ android {
         versionName = baseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        resourceConfigurations += "en"
 
         if (splitApks) {
             splits {
@@ -132,7 +133,7 @@ android {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
         jniLibs.useLegacyPackaging = true
     }
-    androidResources { generateLocaleConfig = true }
+    androidResources { generateLocaleConfig = false }
 
     namespace = "com.junkfood.seal"
 }
