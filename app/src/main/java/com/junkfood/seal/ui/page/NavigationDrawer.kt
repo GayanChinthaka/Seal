@@ -27,8 +27,8 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Subscriptions
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.VolunteerActivism
-import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Cookie
+import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.SettingsApplications
@@ -278,14 +278,14 @@ fun NavigationDrawerSheetContent(
                 )
 
                 NavigationDrawerItem(
-                    label = { Text(stringResource(R.string.trouble_shooting)) },
-                    icon = { Icon(Icons.Rounded.BugReport, null) },
+                    label = { Text(stringResource(R.string.auto_update)) },
+                    icon = { Icon(Icons.Rounded.Update, null) },
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
-                            .invokeOnCompletion { onNavigateToRoute(Route.TROUBLESHOOTING) }
+                            .invokeOnCompletion { onNavigateToRoute(Route.AUTO_UPDATE) }
                     },
-                    selected = currentRoute == Route.TROUBLESHOOTING,
+                    selected = currentRoute == Route.AUTO_UPDATE,
                 )
 
                 NavigationDrawerItem(

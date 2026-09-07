@@ -13,12 +13,9 @@ object Route {
     const val SETTINGS_PAGE = "settings_page"
 
     const val APPEARANCE = "appearance"
-    const val INTERACTION = "interaction"
     const val GENERAL_DOWNLOAD_PREFERENCES = "general_download_preferences"
     const val ABOUT = "about"
     const val DOWNLOAD_DIRECTORY = "download_directory"
-    const val CREDITS = "credits"
-    const val LANGUAGES = "languages"
     const val TEMPLATE = "template"
     const val TEMPLATE_EDIT = "template_edit"
     const val DARK_THEME = "dark_theme"
@@ -30,7 +27,6 @@ object Route {
     const val SUBTITLE_PREFERENCES = "subtitle_preferences"
     const val AUTO_UPDATE = "auto_update"
     const val DONATE = "donate"
-    const val TROUBLESHOOTING = "troubleshooting"
 
     const val TASK_HASHCODE = "task_hashcode"
     const val TEMPLATE_ID = "template_id"
@@ -43,12 +39,9 @@ object Route {
     val SettingsSubRoutes =
         setOf(
             APPEARANCE,
-            INTERACTION,
             GENERAL_DOWNLOAD_PREFERENCES,
             ABOUT,
             DOWNLOAD_DIRECTORY,
-            CREDITS,
-            LANGUAGES,
             TEMPLATE,
             DARK_THEME,
             DOWNLOAD_FORMAT,
@@ -57,7 +50,6 @@ object Route {
             SUBTITLE_PREFERENCES,
             AUTO_UPDATE,
             DONATE,
-            TROUBLESHOOTING,
         )
 }
 

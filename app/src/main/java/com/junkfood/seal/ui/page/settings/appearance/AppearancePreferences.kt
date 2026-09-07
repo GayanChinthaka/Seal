@@ -20,15 +20,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Colorize
+import androidx.compose.material.icons.outlined.Contrast
 import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -58,21 +61,20 @@ import com.junkfood.seal.ui.common.LocalDarkTheme
 import com.junkfood.seal.ui.common.LocalDynamicColorSwitch
 import com.junkfood.seal.ui.common.LocalPaletteStyleIndex
 import com.junkfood.seal.ui.common.LocalSeedColor
-import com.junkfood.seal.ui.common.Route
 import com.junkfood.seal.ui.component.BackButton
-import com.junkfood.seal.ui.component.PreferenceItem
+import com.junkfood.seal.ui.component.PreferenceSubtitle
 import com.junkfood.seal.ui.component.PreferenceSwitch
-import com.junkfood.seal.ui.component.PreferenceSwitchWithDivider
+import com.junkfood.seal.ui.component.SingleChoiceSegmentedButton
 import com.junkfood.seal.ui.page.downloadv2.ActionButton
 import com.junkfood.seal.ui.page.downloadv2.CardStateIndicator
 import com.junkfood.seal.ui.page.downloadv2.VideoCardV2
+import com.junkfood.seal.util.DarkThemePreference.Companion.FOLLOW_SYSTEM
 import com.junkfood.seal.util.DarkThemePreference.Companion.OFF
 import com.junkfood.seal.util.DarkThemePreference.Companion.ON
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.STYLE_MONOCHROME
 import com.junkfood.seal.util.STYLE_TONAL_SPOT
 import com.junkfood.seal.util.paletteStyles
-import com.junkfood.seal.util.toDisplayName
 import com.kyant.monet.LocalTonalPalettes
 import com.kyant.monet.PaletteStyle
 import com.kyant.monet.TonalPalettes
@@ -81,7 +83,6 @@ import com.kyant.monet.a1
 import com.kyant.monet.a2
 import com.kyant.monet.a3
 import io.material.hct.Hct
-import java.util.Locale
 import kotlinx.coroutines.Job
 
 private val ColorList =
@@ -202,23 +203,71 @@ fun AppearancePreferences(onNavigateBack: () -> Unit, onNavigateTo: (String) -> 
                         onClick = { PreferenceUtil.switchDynamicColor() },
                     )
                 }
-                val isDarkTheme = LocalDarkTheme.current.isDarkTheme()
-                PreferenceSwitchWithDivider(
-                    title = stringResource(id = R.string.dark_theme),
-                    icon = if (isDarkTheme) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
-                    isChecked = isDarkTheme,
-                    description = LocalDarkTheme.current.getDarkThemeDesc(),
-                    onChecked = {
-                        PreferenceUtil.modifyDarkThemePreference(if (isDarkTheme) OFF else ON)
-                    },
-                    onClick = { onNavigateTo(Route.DARK_THEME) },
+                val darkThemePreference = LocalDarkTheme.current
+                PreferenceSubtitle(
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                    text = "Theme",
                 )
-                PreferenceItem(
-                    title = stringResource(R.string.language),
-                    icon = Icons.Outlined.Language,
-                    description = Locale.getDefault().toDisplayName(),
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
-                    onNavigateTo(Route.LANGUAGES)
+                    SingleChoiceSegmentedButton(
+                        selected = darkThemePreference.darkThemeValue == FOLLOW_SYSTEM,
+                        onClick = { PreferenceUtil.modifyDarkThemePreference(FOLLOW_SYSTEM) },
+                        shape = SegmentedButtonDefaults.itemShape(0, 3),
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.BrightnessAuto,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                    ) {
+                        Text("Systems")
+                    }
+                    SingleChoiceSegmentedButton(
+                        selected = darkThemePreference.darkThemeValue == OFF,
+                        onClick = { PreferenceUtil.modifyDarkThemePreference(OFF) },
+                        shape = SegmentedButtonDefaults.itemShape(1, 3),
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.LightMode,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                    ) {
+                        Text("Light")
+                    }
+                    SingleChoiceSegmentedButton(
+                        selected = darkThemePreference.darkThemeValue == ON,
+                        onClick = { PreferenceUtil.modifyDarkThemePreference(ON) },
+                        shape = SegmentedButtonDefaults.itemShape(2, 3),
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.DarkMode,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                    ) {
+                        Text("Dark")
+                    }
+                }
+
+                if (darkThemePreference.isDarkTheme()) {
+                    PreferenceSwitch(
+                        title = stringResource(R.string.high_contrast),
+                        icon = Icons.Outlined.Contrast,
+                        isChecked = darkThemePreference.isHighContrastModeEnabled,
+                        onClick = {
+                            PreferenceUtil.modifyDarkThemePreference(
+                                isHighContrastModeEnabled = !darkThemePreference.isHighContrastModeEnabled
+                            )
+                        },
+                    )
                 }
             }
         },

@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Info
@@ -34,8 +33,8 @@ import androidx.compose.material.icons.rounded.SettingsApplications
 import androidx.compose.material.icons.rounded.SignalCellular4Bar
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.VideoFile
-import androidx.compose.material.icons.rounded.ViewComfy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -313,7 +312,7 @@ fun SealSettingsBottomSheet(
                 // Group 3: Appearance & UI
                 item {
                     Material3SettingsGroup(
-                        title = "Appearance & Interface",
+                        title = "Appearance",
                         items = listOf(
                             Material3SettingsItem(
                                 icon = Icons.Rounded.Palette,
@@ -322,15 +321,6 @@ fun SealSettingsBottomSheet(
                                 onClick = {
                                     onDismissRequest()
                                     onNavigateTo(Route.APPEARANCE)
-                                },
-                            ),
-                            Material3SettingsItem(
-                                icon = Icons.Rounded.ViewComfy,
-                                title = { Text(stringResource(R.string.interface_and_interaction)) },
-                                description = { Text(stringResource(R.string.settings_before_download)) },
-                                onClick = {
-                                    onDismissRequest()
-                                    onNavigateTo(Route.INTERACTION)
                                 },
                             ),
                         ),
@@ -364,18 +354,18 @@ fun SealSettingsBottomSheet(
                     )
                 }
 
-                // Group 5: Troubleshooting & About
+                // Group 5: Software Update & About
                 item {
                     Material3SettingsGroup(
                         title = "System & About",
                         items = listOf(
                             Material3SettingsItem(
-                                icon = Icons.Rounded.BugReport,
-                                title = { Text(stringResource(R.string.trouble_shooting)) },
-                                description = { Text(stringResource(R.string.trouble_shooting_desc)) },
+                                icon = Icons.Rounded.Update,
+                                title = { Text(stringResource(R.string.auto_update)) },
+                                description = { Text(stringResource(R.string.check_for_updates_desc)) },
                                 onClick = {
                                     onDismissRequest()
-                                    onNavigateTo(Route.TROUBLESHOOTING)
+                                    onNavigateTo(Route.AUTO_UPDATE)
                                 },
                             ),
                             Material3SettingsItem(
