@@ -85,6 +85,7 @@ data class Task(
             override val taskId: String,
             val progress: Float = PROGRESS_INDETERMINATE,
             val progressText: String = "",
+            val speedText: String = "",
         ) : DownloadState, Cancelable {
             override val action: RestartableAction = RestartableAction.Download
         }
@@ -147,6 +148,16 @@ data class Task(
                 val videoFormats = formats.filter { it.containsVideo() }
                 val audioOnlyFormats = formats.filter { it.isAudioOnly() }
 
+                val formatFileSize =
+                    formats.fold(.0) { acc, format ->
+                        acc + (format.fileSize ?: format.fileSizeApprox ?: .0)
+                    }
+
+                val calculatedFileSize =
+                    info.fileSize
+                        ?: info.fileSizeApprox
+                        ?: (if (formatFileSize > 0) formatFileSize else .0)
+
                 return ViewState(
                     url = info.originalUrl.toString(),
                     title = info.title,
@@ -154,7 +165,7 @@ data class Task(
                     extractorKey = info.extractorKey,
                     duration = info.duration?.roundToInt() ?: 0,
                     thumbnailUrl = info.thumbnail.toHttpsUrl(),
-                    fileSizeApprox = info.fileSize ?: info.fileSizeApprox ?: .0,
+                    fileSizeApprox = calculatedFileSize,
                     videoFormats = videoFormats,
                     audioOnlyFormats = audioOnlyFormats,
                 )

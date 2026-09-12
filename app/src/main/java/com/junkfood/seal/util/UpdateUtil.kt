@@ -31,7 +31,7 @@ import okhttp3.ResponseBody
 
 object UpdateUtil {
 
-    private const val OWNER = "JunkFood02"
+    private const val OWNER = "GayanChinthaka"
     private const val REPO = "Seal"
     private const val ARM64 = "arm64-v8a"
     private const val ARM32 = "armeabi-v7a"
@@ -77,18 +77,19 @@ object UpdateUtil {
     private fun getLatestRelease(): Release =
         client.newCall(requestForReleases).execute().body.use {
             val releaseList = jsonFormat.decodeFromString<List<Release>>(it.string())
-            val stable = UPDATE_CHANNEL.getInt() == STABLE
             val latestRelease =
-                releaseList
-                    .filter { if (stable) it.name.toVersion() is Version.Stable else true }
-                    .maxByOrNull { it.name.toVersion() } ?: throw Exception("null response")
+                releaseList.maxByOrNull {
+                    (it.tagName ?: it.name).toVersion()
+                } ?: throw Exception("No releases found")
             latestRelease
         }
 
     fun checkForUpdate(context: Context = App.context): Release? {
         val currentVersion = context.getCurrentVersion()
         val latestRelease = getLatestRelease()
-        val latestVersion = latestRelease.name.toVersion()
+        val latestVersion =
+            latestRelease.tagName?.toVersion()?.takeIf { it != EMPTY_VERSION }
+                ?: latestRelease.name.toVersion()
         return if (currentVersion < latestVersion) latestRelease else null
     }
 
@@ -120,7 +121,7 @@ object UpdateUtil {
                 }
                 .onFailure { throwable: Throwable ->
                     throwable.printStackTrace()
-                    ToastUtil.makeToast(R.string.app_update_failed)
+                    makeToast(R.string.app_update_failed)
                 }
         }
 
@@ -152,7 +153,9 @@ object UpdateUtil {
 
             Log.d(TAG, apkVersion.toString())
 
-            if (apkVersion >= release.name.toVersion()) {
+            val targetReleaseVersion =
+                release.tagName?.toVersion()?.takeIf { it != EMPTY_VERSION } ?: release.name.toVersion()
+            if (apkVersion >= targetReleaseVersion) {
                 return@withContext flow<DownloadStatus> {
                     emit(DownloadStatus.Finished(context.getLatestApk()))
                 }
@@ -163,10 +166,15 @@ object UpdateUtil {
 
             val targetUrl =
                 release.assets
-                    ?.find {
-                        return@find it.name?.contains(preferredArch) ?: false
-                    }
-                    ?.browserDownloadUrl ?: return@withContext emptyFlow()
+                    ?.find { it.name?.contains(preferredArch) == true }
+                    ?.browserDownloadUrl
+                    ?: release.assets
+                        ?.find { it.name?.contains("universal", ignoreCase = true) == true }
+                        ?.browserDownloadUrl
+                    ?: release.assets
+                        ?.find { it.name?.endsWith(".apk", ignoreCase = true) == true }
+                        ?.browserDownloadUrl
+                    ?: return@withContext emptyFlow()
             val request = Request.Builder().url(targetUrl).build()
             try {
                 val response = client.newCall(request).execute()

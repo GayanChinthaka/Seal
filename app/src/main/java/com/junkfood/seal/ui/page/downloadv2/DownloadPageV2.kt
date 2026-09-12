@@ -332,7 +332,7 @@ fun DownloadPageImplV2(
 ) {
     var showSettingsMenu by remember { mutableStateOf(false) }
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    var activeFilter by remember { mutableStateOf(Filter.All) }
+    var activeFilter by rememberSaveable { mutableStateOf(Filter.Downloading) }
     val filteredMap by
         remember(activeFilter) {
             derivedStateOf { taskDownloadStateMap.filter { activeFilter.predict(it.toPair()) } }

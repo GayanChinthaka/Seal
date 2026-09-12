@@ -46,12 +46,88 @@ private const val MEGA_BYTES = 1024f * 1024f
 
 @Composable
 fun Number?.toFileSizeText(): String {
-    if (this == null) return stringResource(id = R.string.unknown)
+    if (this == null || this.toDouble() <= 0.0) return stringResource(id = R.string.unknown)
 
     return this.toFloat().run {
         if (this > GIGA_BYTES) stringResource(R.string.filesize_gb).format(this / GIGA_BYTES)
         else stringResource(R.string.filesize_mb).format(this / MEGA_BYTES)
     }
+}
+
+fun parseSpeedFromText(text: String): String? {
+    val ytDlpRegex = Regex("""\bat\s+([~]?\s*[\d.]+)\s*([a-zA-Z]+(?:/[a-zA-Z]+)?)""", RegexOption.IGNORE_CASE)
+    val match = ytDlpRegex.find(text)
+    if (match != null) {
+        val valueStr = match.groupValues[1].trim()
+        val rawUnit = match.groupValues[2].trim()
+        val unit = when {
+            rawUnit.startsWith("G", ignoreCase = true) -> "GBps"
+            rawUnit.startsWith("M", ignoreCase = true) -> "MBps"
+            rawUnit.startsWith("K", ignoreCase = true) -> "KBps"
+            rawUnit.startsWith("B", ignoreCase = true) -> "Bps"
+            else -> "MBps"
+        }
+        val value = valueStr.replace("~", "").trim().toDoubleOrNull()
+        return if (value != null) {
+            "%.1f %s".format(value, unit)
+        } else {
+            "$valueStr $unit"
+        }
+    }
+    val aria2cRegex = Regex("""DL:\s*([\d.]+)\s*([a-zA-Z]+)""", RegexOption.IGNORE_CASE)
+    val ariaMatch = aria2cRegex.find(text)
+    if (ariaMatch != null) {
+        val valueStr = ariaMatch.groupValues[1].trim()
+        val rawUnit = ariaMatch.groupValues[2].trim()
+        val unit = when {
+            rawUnit.startsWith("G", ignoreCase = true) -> "GBps"
+            rawUnit.startsWith("M", ignoreCase = true) -> "MBps"
+            rawUnit.startsWith("K", ignoreCase = true) -> "KBps"
+            rawUnit.startsWith("B", ignoreCase = true) -> "Bps"
+            else -> "MBps"
+        }
+        val value = valueStr.toDoubleOrNull()
+        return if (value != null) {
+            "%.1f %s".format(value, unit)
+        } else {
+            "$valueStr $unit"
+        }
+    }
+    return null
+}
+
+fun parseFileSizeFromText(text: String): Double? {
+    val ytDlpRegex = Regex("""of\s+~?\s*([\d.]+)\s*([KMGTPE]?i?B)""", RegexOption.IGNORE_CASE)
+    val match = ytDlpRegex.find(text)
+    if (match != null) {
+        val value = match.groupValues[1].toDoubleOrNull() ?: return null
+        val unit = match.groupValues[2].uppercase()
+        val multiplier = when {
+            unit.startsWith("K") -> 1024.0
+            unit.startsWith("M") -> 1024.0 * 1024.0
+            unit.startsWith("G") -> 1024.0 * 1024.0 * 1024.0
+            unit.startsWith("T") -> 1024.0 * 1024.0 * 1024.0 * 1024.0
+            unit.startsWith("P") -> 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0
+            else -> 1.0
+        }
+        return value * multiplier
+    }
+    val aria2cRegex = Regex("""/\s*([\d.]+)\s*([KMGTPE]?i?B)""", RegexOption.IGNORE_CASE)
+    val ariaMatch = aria2cRegex.find(text)
+    if (ariaMatch != null) {
+        val value = ariaMatch.groupValues[1].toDoubleOrNull() ?: return null
+        val unit = ariaMatch.groupValues[2].uppercase()
+        val multiplier = when {
+            unit.startsWith("K") -> 1024.0
+            unit.startsWith("M") -> 1024.0 * 1024.0
+            unit.startsWith("G") -> 1024.0 * 1024.0 * 1024.0
+            unit.startsWith("T") -> 1024.0 * 1024.0 * 1024.0 * 1024.0
+            unit.startsWith("P") -> 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0
+            else -> 1.0
+        }
+        return value * multiplier
+    }
+    return null
 }
 
 /** Convert time in **seconds** to `hh:mm:ss` or `mm:ss` */

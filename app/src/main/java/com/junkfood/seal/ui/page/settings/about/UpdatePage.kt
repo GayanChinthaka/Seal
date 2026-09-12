@@ -17,19 +17,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Update
-import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -49,25 +45,18 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.junkfood.seal.App
 import com.junkfood.seal.App.Companion.packageInfo
 import com.junkfood.seal.R
-import com.junkfood.seal.ui.common.intState
 import com.junkfood.seal.ui.component.BackButton
 import com.junkfood.seal.ui.page.UpdateDialog
 import com.junkfood.seal.util.AUTO_UPDATE
-import com.junkfood.seal.util.PRE_RELEASE
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
-import com.junkfood.seal.util.PreferenceUtil.updateInt
-import com.junkfood.seal.util.STABLE
-import com.junkfood.seal.util.ToastUtil
-import com.junkfood.seal.util.UPDATE_CHANNEL
 import com.junkfood.seal.util.UpdateUtil
+import com.junkfood.seal.util.makeToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -81,7 +70,6 @@ fun UpdatePage(onNavigateBack: () -> Unit) {
             canScroll = { true },
         )
     var autoUpdate by remember { mutableStateOf(PreferenceUtil.isAutoUpdateEnabled()) }
-    var updateChannel by UPDATE_CHANNEL.intState
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -91,7 +79,6 @@ fun UpdatePage(onNavigateBack: () -> Unit) {
     var isLoading by remember { mutableStateOf(false) }
 
     val versionName = packageInfo.versionName ?: "1.0.0"
-    val versionCode = packageInfo.versionCode
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -148,7 +135,7 @@ fun UpdatePage(onNavigateBack: () -> Unit) {
                         Spacer(Modifier.height(4.dp))
 
                         Text(
-                            text = "Current Version: v$versionName (build $versionCode)",
+                            text = "Current Version: v$versionName",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -218,20 +205,19 @@ fun UpdatePage(onNavigateBack: () -> Unit) {
                                         scope.launch {
                                             runCatching {
                                                 isLoading = true
-                                                withContext(Dispatchers.IO) {
-                                                    UpdateUtil.checkForUpdate()?.let {
-                                                        release = it
-                                                        showUpdateDialog = true
-                                                    } ?: ToastUtil.makeToastSuspend(
-                                                        context.getString(R.string.app_up_to_date)
-                                                    )
+                                                val updateResult = withContext(Dispatchers.IO) {
+                                                    UpdateUtil.checkForUpdate()
+                                                }
+                                                if (updateResult != null) {
+                                                    release = updateResult
+                                                    showUpdateDialog = true
+                                                } else {
+                                                    context.makeToast(R.string.app_up_to_date)
                                                 }
                                                 isLoading = false
                                             }.onFailure {
                                                 it.printStackTrace()
-                                                ToastUtil.makeToastSuspend(
-                                                    context.getString(R.string.app_update_failed)
-                                                )
+                                                context.makeToast(R.string.app_update_failed)
                                                 isLoading = false
                                             }
                                         }
@@ -331,157 +317,6 @@ fun UpdatePage(onNavigateBack: () -> Unit) {
                     }
                 }
 
-                // Update Channel Section
-                item {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = stringResource(id = R.string.update_channel).uppercase(),
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp,
-                            ),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
-                        )
-
-                        Card(
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                // Stable Channel Option
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            updateChannel = STABLE
-                                            UPDATE_CHANNEL.updateInt(STABLE)
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(38.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Verified,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp),
-                                        )
-                                    }
-
-                                    Spacer(Modifier.width(14.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = stringResource(R.string.stable_channel),
-                                            style = MaterialTheme.typography.bodyLarge.copy(
-                                                fontWeight = FontWeight.Medium,
-                                                fontSize = 15.sp,
-                                            ),
-                                        )
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(
-                                            text = "Official releases recommended for all users",
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            ),
-                                        )
-                                    }
-
-                                    RadioButton(
-                                        selected = updateChannel == STABLE,
-                                        onClick = {
-                                            updateChannel = STABLE
-                                            UPDATE_CHANNEL.updateInt(STABLE)
-                                        },
-                                    )
-                                }
-
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 68.dp, end = 16.dp),
-                                    thickness = Dp.Hairline,
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                )
-
-                                // Pre-Release Channel Option
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            updateChannel = PRE_RELEASE
-                                            UPDATE_CHANNEL.updateInt(PRE_RELEASE)
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(38.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.NewReleases,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp),
-                                        )
-                                    }
-
-                                    Spacer(Modifier.width(14.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = stringResource(R.string.pre_release_channel),
-                                            style = MaterialTheme.typography.bodyLarge.copy(
-                                                fontWeight = FontWeight.Medium,
-                                                fontSize = 15.sp,
-                                            ),
-                                        )
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(
-                                            text = "Preview builds with latest experimental features",
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            ),
-                                        )
-                                    }
-
-                                    RadioButton(
-                                        selected = updateChannel == PRE_RELEASE,
-                                        onClick = {
-                                            updateChannel = PRE_RELEASE
-                                            UPDATE_CHANNEL.updateInt(PRE_RELEASE)
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Info note
-                item {
-                    Text(
-                        text = stringResource(id = R.string.update_channel_desc),
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                    )
-                }
             }
         },
     )

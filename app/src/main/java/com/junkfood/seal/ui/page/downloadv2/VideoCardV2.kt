@@ -363,19 +363,28 @@ private fun TitleText(
 
 @Composable
 private fun VideoInfoLabel(modifier: Modifier = Modifier, duration: Int, fileSizeApprox: Double) {
-    Surface(
-        modifier = modifier.padding(4.dp),
-        color = LabelContainerColor,
-        shape = MaterialTheme.shapes.extraSmall,
-    ) {
-        val fileSizeText = fileSizeApprox.toFileSizeText()
-        val durationText = duration.toDurationText()
-        Text(
-            modifier = Modifier.padding(horizontal = 4.dp),
-            text = "$fileSizeText  $durationText",
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
-        )
+    val fileSizeText = if (fileSizeApprox > 0.0) fileSizeApprox.toFileSizeText() else ""
+    val durationText = if (duration > 0) duration.toDurationText() else ""
+    val labelText =
+        when {
+            fileSizeText.isNotEmpty() && durationText.isNotEmpty() -> "$fileSizeText  $durationText"
+            fileSizeText.isNotEmpty() -> fileSizeText
+            durationText.isNotEmpty() -> durationText
+            else -> ""
+        }
+    if (labelText.isNotEmpty()) {
+        Surface(
+            modifier = modifier.padding(4.dp),
+            color = LabelContainerColor,
+            shape = MaterialTheme.shapes.extraSmall,
+        ) {
+            Text(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                text = labelText,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+            )
+        }
     }
 }
 
@@ -418,10 +427,16 @@ fun ListItemStateText(
                 ReadyWithInfo -> stringResource(R.string.status_enqueued)
                 is Running -> {
                     val progress = downloadState.progress
-                    if (progress >= 0) {
-                        "%.1f %%".format(downloadState.progress * 100)
+                    val progressString =
+                        if (progress >= 0) {
+                            "%.1f %%".format(downloadState.progress * 100)
+                        } else {
+                            stringResource(R.string.status_downloading)
+                        }
+                    if (downloadState.speedText.isNotEmpty()) {
+                        "$progressString  •  ${downloadState.speedText}"
                     } else {
-                        stringResource(R.string.status_downloading)
+                        progressString
                     }
                 }
             }
@@ -543,8 +558,28 @@ fun ActionButton(
             ProgressButton(modifier = modifier, progress = -1f) { onActionPost(UiAction.Cancel) }
         }
         is Running -> {
-            ProgressButton(modifier = modifier, progress = downloadState.progress) {
-                onActionPost(UiAction.Cancel)
+            Column(
+                modifier = modifier,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                ProgressButton(modifier = Modifier, progress = downloadState.progress) {
+                    onActionPost(UiAction.Cancel)
+                }
+                if (downloadState.speedText.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        color = LabelContainerColor,
+                        shape = MaterialTheme.shapes.extraSmall,
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            text = downloadState.speedText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                        )
+                    }
+                }
             }
         }
     }

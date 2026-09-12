@@ -44,7 +44,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -70,7 +69,6 @@ fun AboutPage(
     val context = LocalContext.current
 
     val versionName = packageInfo.versionName ?: "1.0.0"
-    val versionCode = packageInfo.versionCode
 
     val appIcon: ImageBitmap? = remember(context) {
         runCatching {
@@ -150,7 +148,7 @@ fun AboutPage(
                         Spacer(Modifier.height(4.dp))
 
                         Text(
-                            text = "Version $versionName (build $versionCode)",
+                            text = "Version $versionName",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -320,31 +318,34 @@ private fun AboutInfoRow(
 const val weblate = "https://hosted.weblate.org/engage/seal/"
 const val YtdlpRepository = "https://github.com/yt-dlp/yt-dlp"
 
-@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 @Composable
 fun AutoUpdateUnavailableDialog(onDismissRequest: () -> Unit = {}) {
-    val uriHandler = LocalUriHandler.current
-    val hapticFeedback = androidx.compose.ui.platform.LocalHapticFeedback.current
     val hyperLinkText = stringResource(id = R.string.switch_to_github_builds)
     val text = stringResource(id = R.string.auto_update_disabled_msg, "F-Droid", hyperLinkText)
 
     val annotatedString = androidx.compose.ui.text.buildAnnotatedString {
         append(text)
         val startIndex = text.indexOf(hyperLinkText)
-        val endIndex = startIndex + hyperLinkText.length
-        addUrlAnnotation(
-            androidx.compose.ui.text.UrlAnnotation("https://github.com/JunkFood02/Seal/releases/latest"),
-            start = startIndex,
-            end = endIndex,
-        )
-        addStyle(
-            androidx.compose.ui.text.SpanStyle(
-                color = MaterialTheme.colorScheme.tertiary,
-                textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
-            ),
-            start = startIndex,
-            end = endIndex,
-        )
+        if (startIndex != -1) {
+            val endIndex = startIndex + hyperLinkText.length
+            addLink(
+                url =
+                    androidx.compose.ui.text.LinkAnnotation.Url(
+                        url = "https://github.com/GayanChinthaka/Seal/releases/latest",
+                        styles =
+                            androidx.compose.ui.text.TextLinkStyles(
+                                style =
+                                    androidx.compose.ui.text.SpanStyle(
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        textDecoration =
+                                            androidx.compose.ui.text.style.TextDecoration.Underline,
+                                    )
+                            ),
+                    ),
+                start = startIndex,
+                end = endIndex,
+            )
+        }
     }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -359,17 +360,11 @@ fun AutoUpdateUnavailableDialog(onDismissRequest: () -> Unit = {}) {
             )
         },
         text = {
-            androidx.compose.foundation.text.ClickableText(
+            Text(
                 text = annotatedString,
-                onClick = { index ->
-                    annotatedString.getUrlAnnotations(index, index).firstOrNull()?.let {
-                        hapticFeedback.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                        uriHandler.openUri(it.item.url)
-                    }
-                },
                 style =
                     MaterialTheme.typography.bodyMedium.copy(
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
             )
         },
