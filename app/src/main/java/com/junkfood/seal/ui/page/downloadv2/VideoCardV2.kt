@@ -92,6 +92,7 @@ private val LabelContainerColor: Color = Color.Black.copy(alpha = 0.68f)
 fun VideoCardV2(
     modifier: Modifier = Modifier,
     viewState: Task.ViewState,
+    downloadState: Task.DownloadState? = null,
     stateIndicator: @Composable (BoxScope.() -> Unit)? = null,
     actionButton: @Composable (BoxScope.() -> Unit)? = null,
     onButtonClick: () -> Unit,
@@ -104,6 +105,7 @@ fun VideoCardV2(
             uploader = uploader,
             duration = duration,
             fileSizeApprox = fileSizeApprox,
+            downloadState = downloadState,
             stateIndicator = stateIndicator,
             actionButton = actionButton,
             onButtonClick = onButtonClick,
@@ -115,6 +117,7 @@ fun VideoCardV2(
 fun VideoListItem(
     modifier: Modifier = Modifier,
     viewState: Task.ViewState,
+    downloadState: Task.DownloadState? = null,
     stateIndicator: @Composable (() -> Unit)? = null,
     onButtonClick: () -> Unit,
 ) {
@@ -126,6 +129,7 @@ fun VideoListItem(
             uploader = uploader,
             duration = duration,
             fileSizeApprox = fileSizeApprox,
+            downloadState = downloadState,
             stateIndicator = stateIndicator,
             onButtonClick = onButtonClick,
         )
@@ -140,6 +144,7 @@ fun VideoListItem(
     uploader: String = "",
     duration: Int = 0,
     fileSizeApprox: Double = .0,
+    downloadState: Task.DownloadState? = null,
     stateIndicator: @Composable (() -> Unit)? = null,
     onButtonClick: () -> Unit,
 ) {
@@ -150,6 +155,7 @@ fun VideoListItem(
                 modifier = Modifier.align(Alignment.BottomEnd),
                 duration = duration,
                 fileSizeApprox = fileSizeApprox,
+                downloadState = downloadState,
             )
         }
         Box {
@@ -227,6 +233,7 @@ fun VideoCardV2(
     uploader: String = "",
     duration: Int = 0,
     fileSizeApprox: Double = .0,
+    downloadState: Task.DownloadState? = null,
     stateIndicator: @Composable (BoxScope.() -> Unit)? = null,
     actionButton: @Composable (BoxScope.() -> Unit)? = null,
     onButtonClick: () -> Unit,
@@ -249,6 +256,7 @@ fun VideoCardV2(
                     modifier = Modifier.align(Alignment.BottomEnd),
                     duration = duration,
                     fileSizeApprox = fileSizeApprox,
+                    downloadState = downloadState,
                 )
             }
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -362,8 +370,21 @@ private fun TitleText(
 }
 
 @Composable
-private fun VideoInfoLabel(modifier: Modifier = Modifier, duration: Int, fileSizeApprox: Double) {
-    val fileSizeText = if (fileSizeApprox > 0.0) fileSizeApprox.toFileSizeText() else ""
+private fun VideoInfoLabel(
+    modifier: Modifier = Modifier,
+    duration: Int,
+    fileSizeApprox: Double,
+    downloadState: Task.DownloadState? = null,
+) {
+    val fileSizeText =
+        when {
+            downloadState is Task.DownloadState.Running && fileSizeApprox > 0.0 -> {
+                val currentDownloaded = fileSizeApprox * downloadState.progress.coerceIn(0f, 1f)
+                currentDownloaded.toFileSizeText()
+            }
+            fileSizeApprox > 0.0 -> fileSizeApprox.toFileSizeText()
+            else -> ""
+        }
     val durationText = if (duration > 0) duration.toDurationText() else ""
     val labelText =
         when {
@@ -568,10 +589,7 @@ fun ActionButton(
                 }
                 if (downloadState.speedText.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Surface(
-                        color = LabelContainerColor,
-                        shape = MaterialTheme.shapes.extraSmall,
-                    ) {
+                    Surface(color = LabelContainerColor, shape = MaterialTheme.shapes.extraSmall) {
                         Text(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             text = downloadState.speedText,

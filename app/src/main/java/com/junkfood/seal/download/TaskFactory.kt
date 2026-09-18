@@ -25,9 +25,13 @@ object TaskFactory {
         selectedSubtitles: List<String>,
         selectedAutoCaptions: List<String>,
     ): TaskWithState {
+        val duration = videoInfo.duration ?: 0.0
         val fileSize =
             formatList.fold(.0) { acc, format ->
-                acc + (format.fileSize ?: format.fileSizeApprox ?: .0)
+                acc +
+                    (format.fileSize
+                        ?: format.fileSizeApprox
+                        ?: (duration * (format.tbr ?: 0.0) * 125))
             }
 
         val info =
@@ -102,7 +106,12 @@ object TaskFactory {
                         uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
                         thumbnailUrl = (entry.thumbnails?.lastOrNull()?.url) ?: "",
                     )
-                val task = Task(url = playlistUrl, preferences = preferences, type = Task.TypeInfo.Playlist(index))
+                val task =
+                    Task(
+                        url = playlistUrl,
+                        preferences = preferences,
+                        type = Task.TypeInfo.Playlist(index),
+                    )
                 val state =
                     Task.State(downloadState = Idle, videoInfo = null, viewState = viewState)
                 TaskWithState(task, state)

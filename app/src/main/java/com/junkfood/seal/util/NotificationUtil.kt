@@ -90,13 +90,15 @@ object NotificationUtil {
                     }
             }
 
+        val sanitizedText = text?.let { sanitizeBinaryUnits(it) }
+
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_seal)
             .setContentTitle(title)
             .setProgress(PROGRESS_MAX, progress, progress <= 0)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(sanitizedText))
             .run {
                 pendingIntent?.let {
                     addAction(R.drawable.outline_cancel_24, context.getString(R.string.cancel), it)
@@ -234,13 +236,15 @@ object NotificationUtil {
                 PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
             )
 
+        val sanitizedText = text?.let { sanitizeBinaryUnits(it) }
+
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_seal)
             .setContentTitle(
                 "[${templateName}_${taskUrl}] " +
                     context.getString(R.string.execute_command_notification)
             )
-            .setContentText(text)
+            .setContentText(sanitizedText)
             .setOngoing(true)
             .setProgress(PROGRESS_MAX, progress, progress == -1)
             .addAction(

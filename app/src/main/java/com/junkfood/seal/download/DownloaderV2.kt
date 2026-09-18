@@ -26,7 +26,9 @@ import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.VideoInfo
 import com.junkfood.seal.util.parseFileSizeFromText
 import com.junkfood.seal.util.parseSpeedFromText
+import com.junkfood.seal.util.sanitizeBinaryUnits
 import com.yausername.youtubedl_android.YoutubeDL
+import java.io.File
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.set
@@ -293,27 +295,39 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         taskId = id,
                         downloadPreferences = preferences,
                         progressCallback = { progressPercentage, _, text ->
-                            val progress = progressPercentage / 100f
+                            val rawProgress = progressPercentage / 100f
                             val speed =
                                 parseSpeedFromText(text)
                                     ?: (downloadState as? Running)?.speedText
                                     ?: ""
                             val parsedFileSize = parseFileSizeFromText(text)
-                            if (parsedFileSize != null && parsedFileSize > viewState.fileSizeApprox) {
+                            if (
+                                parsedFileSize != null && parsedFileSize > viewState.fileSizeApprox
+                            ) {
                                 viewState = viewState.copy(fileSizeApprox = parsedFileSize)
                             }
+                            val sanitizedProgressText = sanitizeBinaryUnits(text)
                             when (val preState = downloadState) {
                                 is Running -> {
+                                    val progress =
+                                        if (
+                                            rawProgress < preState.progress &&
+                                                preState.progress - rawProgress < 0.20f
+                                        ) {
+                                            preState.progress
+                                        } else {
+                                            rawProgress
+                                        }
                                     downloadState =
                                         preState.copy(
                                             progress = progress,
-                                            progressText = text,
+                                            progressText = sanitizedProgressText,
                                             speedText = speed,
                                         )
                                     NotificationUtil.notifyProgress(
                                         notificationId = notificationId,
-                                        progress = progressPercentage.toInt(),
-                                        text = text,
+                                        progress = (progress * 100).toInt(),
+                                        text = sanitizedProgressText,
                                         title = viewState.title,
                                         taskId = id,
                                     )
@@ -323,7 +337,17 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         },
                     )
                     .onSuccess { pathList ->
-                        downloadState = Completed(pathList.firstOrNull())
+                        val filePath = pathList.firstOrNull()
+                        if (filePath != null) {
+                            val downloadedFile = File(filePath)
+                            if (downloadedFile.exists() && downloadedFile.length() > 0) {
+                                viewState =
+                                    viewState.copy(
+                                        fileSizeApprox = downloadedFile.length().toDouble()
+                                    )
+                            }
+                        }
+                        downloadState = Completed(filePath)
 
                         val text =
                             appContext.getString(
@@ -420,30 +444,38 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         progressPercentage,
                         _,
                         text ->
-                        val progress = progressPercentage / 100f
+                        val rawProgress = progressPercentage / 100f
                         val speed =
-                            parseSpeedFromText(text)
-                                ?: (downloadState as? Running)?.speedText
-                                ?: ""
+                            parseSpeedFromText(text) ?: (downloadState as? Running)?.speedText ?: ""
                         val parsedFileSize = parseFileSizeFromText(text)
                         if (parsedFileSize != null && parsedFileSize > viewState.fileSizeApprox) {
                             viewState = viewState.copy(fileSizeApprox = parsedFileSize)
                         }
+                        val sanitizedProgressText = sanitizeBinaryUnits(text)
                         when (val preState = downloadState) {
                             is Running -> {
+                                val progress =
+                                    if (
+                                        rawProgress < preState.progress &&
+                                            preState.progress - rawProgress < 0.20f
+                                    ) {
+                                        preState.progress
+                                    } else {
+                                        rawProgress
+                                    }
                                 downloadState =
                                     preState.copy(
                                         progress = progress,
-                                        progressText = text,
+                                        progressText = sanitizedProgressText,
                                         speedText = speed,
                                     )
                                 NotificationUtil.makeNotificationForCustomCommand(
                                     notificationId = notificationId,
                                     taskId = id,
-                                    progress = progressPercentage.toInt(),
+                                    progress = (progress * 100).toInt(),
                                     templateName = template.name,
                                     taskUrl = url,
-                                    text = text,
+                                    text = sanitizedProgressText,
                                 )
                             }
                             else -> {}

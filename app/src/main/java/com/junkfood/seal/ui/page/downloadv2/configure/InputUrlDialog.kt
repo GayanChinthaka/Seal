@@ -180,23 +180,6 @@ private fun InputUrlPageImpl(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 32.dp),
         ) {
-            if (urlListFromClipboard.isNotEmpty()) {
-                item(key = "paste url") {
-                    SuggestionChip(
-                        modifier = Modifier.animateItem(),
-                        onClick = { url = urlListFromClipboard.first() },
-                        label = { Text(stringResource(R.string.paste_msg)) },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentPaste,
-                                contentDescription = null,
-                                modifier = Modifier.size(SuggestionChipDefaults.IconSize),
-                            )
-                        },
-                    )
-                }
-            }
-
             if (urlListFromClipboard.size > 1) {
                 item(key = "paste multiple url") {
                     SuggestionChip(

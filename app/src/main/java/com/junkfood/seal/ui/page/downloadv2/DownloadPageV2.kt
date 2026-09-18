@@ -80,6 +80,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -111,19 +112,23 @@ import com.junkfood.seal.ui.component.SealSettingsBottomSheet
 import com.junkfood.seal.ui.component.SelectionGroupDefaults
 import com.junkfood.seal.ui.component.SelectionGroupItem
 import com.junkfood.seal.ui.component.SelectionGroupRow
-import com.junkfood.seal.ui.page.videolist.VideoListPage
-import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action
 import com.junkfood.seal.ui.page.downloadv2.configure.Config
 import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialog
 import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel
+import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action
 import com.junkfood.seal.ui.page.downloadv2.configure.FormatPage
 import com.junkfood.seal.ui.page.downloadv2.configure.PlaylistSelectionPage
 import com.junkfood.seal.ui.page.downloadv2.configure.PreferencesMock
+import com.junkfood.seal.ui.page.videolist.VideoListPage
 import com.junkfood.seal.ui.svg.DynamicColorImageVectors
 import com.junkfood.seal.ui.svg.drawablevectors.download
 import com.junkfood.seal.ui.theme.SealTheme
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.PRIVATE_MODE
+import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
+import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.getErrorReport
 import com.junkfood.seal.util.makeToast
 import kotlinx.coroutines.CoroutineScope
@@ -331,6 +336,7 @@ fun DownloadPageImplV2(
     onActionPost: (Task, UiAction) -> Unit,
 ) {
     var showSettingsMenu by remember { mutableStateOf(false) }
+    var isIncognito by remember { mutableStateOf(PRIVATE_MODE.getBoolean()) }
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     var activeFilter by rememberSaveable { mutableStateOf(Filter.Downloading) }
     val filteredMap by
@@ -397,6 +403,16 @@ fun DownloadPageImplV2(
                     Header(
                         onMenuOpen = onMenuOpen,
                         onSettingsClick = { showSettingsMenu = true },
+                        isIncognito = isIncognito,
+                        onToggleIncognito = {
+                            val newState = !isIncognito
+                            isIncognito = newState
+                            PreferenceUtil.updateValue(PRIVATE_MODE, newState)
+                            ToastUtil.makeToast(
+                                if (newState) R.string.incognito_enabled
+                                else R.string.incognito_disabled
+                            )
+                        },
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                     TabRow(
@@ -490,44 +506,70 @@ fun DownloadPageImplV2(
                                 PaddingValues(start = 20.dp, end = 20.dp, bottom = 80.dp),
                         horizontalArrangement = Arrangement.spacedBy(24.dp),
                     ) {
-                    if (filteredMap.isNotEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            val videoCount =
-                                filteredMap.count {
-                                    !it.value.viewState.videoFormats.isNullOrEmpty()
-                                }
-                            SubHeader(
-                                modifier = Modifier,
-                                videoCount = videoCount,
-                                audioCount = filteredMap.size - videoCount,
-                                isGridView = isGridView,
-                                onToggleView = { isGridView = !isGridView },
-                                onShowMenu = { context.makeToast("Not implemented yet!") },
-                            )
+                        if (filteredMap.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                val videoCount =
+                                    filteredMap.count {
+                                        !it.value.viewState.videoFormats.isNullOrEmpty()
+                                    }
+                                SubHeader(
+                                    modifier = Modifier,
+                                    videoCount = videoCount,
+                                    audioCount = filteredMap.size - videoCount,
+                                    isGridView = isGridView,
+                                    onToggleView = { isGridView = !isGridView },
+                                    onShowMenu = { context.makeToast("Not implemented yet!") },
+                                )
+                            }
                         }
-                    }
 
-                    if (isGridView) {
-                        items(
-                            items =
-                                filteredMap.toList().sortedBy { (_, state) -> state.downloadState },
-                            key = { (task, _) -> task.id },
-                        ) { (task, state) ->
-                            with(state.viewState) {
-                                VideoCardV2(
-                                    modifier = Modifier.padding(bottom = 20.dp).padding(),
-                                    viewState = this,
-                                    actionButton = {
-                                        ActionButton(
-                                            modifier = Modifier,
-                                            downloadState = state.downloadState,
-                                        ) {
-                                            onActionPost(task, it)
-                                        }
+                        if (isGridView) {
+                            items(
+                                items =
+                                    filteredMap.toList().sortedBy { (_, state) ->
+                                        state.downloadState
                                     },
+                                key = { (task, _) -> task.id },
+                            ) { (task, state) ->
+                                with(state.viewState) {
+                                    VideoCardV2(
+                                        modifier = Modifier.padding(bottom = 20.dp).padding(),
+                                        viewState = this,
+                                        downloadState = state.downloadState,
+                                        actionButton = {
+                                            ActionButton(
+                                                modifier = Modifier,
+                                                downloadState = state.downloadState,
+                                            ) {
+                                                onActionPost(task, it)
+                                            }
+                                        },
+                                        stateIndicator = {
+                                            CardStateIndicator(
+                                                modifier = Modifier,
+                                                downloadState = state.downloadState,
+                                            )
+                                        },
+                                        onButtonClick = { showActionSheet(task) },
+                                    )
+                                }
+                            }
+                        } else {
+                            items(
+                                items =
+                                    filteredMap.toList().sortedBy { (_, state) ->
+                                        state.downloadState
+                                    },
+                                key = { (task, _) -> task.id },
+                                span = { GridItemSpan(maxLineSpan) },
+                            ) { (task, state) ->
+                                VideoListItem(
+                                    modifier = Modifier.padding(bottom = 16.dp),
+                                    viewState = state.viewState,
+                                    downloadState = state.downloadState,
                                     stateIndicator = {
-                                        CardStateIndicator(
-                                            modifier = Modifier,
+                                        ListItemStateText(
+                                            modifier = Modifier.padding(top = 3.dp),
                                             downloadState = state.downloadState,
                                         )
                                     },
@@ -535,43 +577,20 @@ fun DownloadPageImplV2(
                                 )
                             }
                         }
-                    } else {
-                        items(
-                            items =
-                                filteredMap.toList().sortedBy { (_, state) -> state.downloadState },
-                            key = { (task, _) -> task.id },
-                            span = { GridItemSpan(maxLineSpan) },
-                        ) { (task, state) ->
-                            VideoListItem(
-                                modifier = Modifier.padding(bottom = 16.dp),
-                                viewState = state.viewState,
-                                stateIndicator = {
-                                    ListItemStateText(
-                                        modifier = Modifier.padding(top = 3.dp),
-                                        downloadState = state.downloadState,
-                                    )
-                                },
-                                onButtonClick = { showActionSheet(task) },
+                    }
+                    if (filteredMap.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            DownloadQueuePlaceholder(
+                                modifier =
+                                    Modifier.fillMaxHeight(0.4f)
+                                        .widthIn(max = 360.dp)
+                                        .align(Alignment.Center)
                             )
                         }
                     }
+                } else {
+                    VideoListPage(modifier = Modifier.fillMaxSize(), showTopBar = false)
                 }
-                if (filteredMap.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        DownloadQueuePlaceholder(
-                            modifier =
-                                Modifier.fillMaxHeight(0.4f)
-                                    .widthIn(max = 360.dp)
-                                    .align(Alignment.Center)
-                        )
-                    }
-                }
-            } else {
-                VideoListPage(
-                    modifier = Modifier.fillMaxSize(),
-                    showTopBar = false,
-                )
-            }
             }
         }
     }
@@ -609,17 +628,26 @@ fun Header(
     modifier: Modifier = Modifier,
     onMenuOpen: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
+    isIncognito: Boolean = false,
+    onToggleIncognito: () -> Unit = {},
 ) {
     val windowWidthSizeClass = LocalWindowWidthState.current
     when (windowWidthSizeClass) {
         WindowWidthSizeClass.Expanded -> {
-            HeaderExpanded(modifier = modifier, onSettingsClick = onSettingsClick)
+            HeaderExpanded(
+                modifier = modifier,
+                onSettingsClick = onSettingsClick,
+                isIncognito = isIncognito,
+                onToggleIncognito = onToggleIncognito,
+            )
         }
         else -> {
             HeaderCompact(
                 modifier = modifier,
                 onMenuOpen = onMenuOpen,
                 onSettingsClick = onSettingsClick,
+                isIncognito = isIncognito,
+                onToggleIncognito = onToggleIncognito,
             )
         }
     }
@@ -630,6 +658,8 @@ private fun HeaderCompact(
     modifier: Modifier = Modifier,
     onMenuOpen: () -> Unit,
     onSettingsClick: () -> Unit,
+    isIncognito: Boolean,
+    onToggleIncognito: () -> Unit,
 ) {
     Row(
         modifier = modifier.height(64.dp).fillMaxWidth(),
@@ -654,17 +684,42 @@ private fun HeaderCompact(
                     ),
             )
         }
-        IconButton(onClick = onSettingsClick) {
-            Icon(
-                imageVector = Icons.Outlined.Settings,
-                contentDescription = stringResource(R.string.settings),
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onSettingsClick) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = stringResource(R.string.settings),
+                )
+            }
+            IconButton(
+                onClick = onToggleIncognito,
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor =
+                            if (isIncognito) MaterialTheme.colorScheme.primaryContainer
+                            else Color.Transparent,
+                        contentColor =
+                            if (isIncognito) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                    ),
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_incognito),
+                    contentDescription = stringResource(R.string.private_mode),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun HeaderExpanded(modifier: Modifier = Modifier, onSettingsClick: () -> Unit) {
+private fun HeaderExpanded(
+    modifier: Modifier = Modifier,
+    onSettingsClick: () -> Unit,
+    isIncognito: Boolean,
+    onToggleIncognito: () -> Unit,
+) {
     Row(
         modifier = modifier.height(64.dp).fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -677,11 +732,31 @@ private fun HeaderExpanded(modifier: Modifier = Modifier, onSettingsClick: () ->
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
             )
         }
-        IconButton(onClick = onSettingsClick) {
-            Icon(
-                imageVector = Icons.Outlined.Settings,
-                contentDescription = stringResource(R.string.settings),
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onSettingsClick) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = stringResource(R.string.settings),
+                )
+            }
+            IconButton(
+                onClick = onToggleIncognito,
+                colors =
+                    IconButtonDefaults.iconButtonColors(
+                        containerColor =
+                            if (isIncognito) MaterialTheme.colorScheme.primaryContainer
+                            else Color.Transparent,
+                        contentColor =
+                            if (isIncognito) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                    ),
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_incognito),
+                    contentDescription = stringResource(R.string.private_mode),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
     }
     Spacer(Modifier.height(4.dp))
