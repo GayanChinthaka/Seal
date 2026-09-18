@@ -64,6 +64,14 @@ object DatabaseUtil {
         infoList.forEach { info -> if (deleteFile) FileUtil.deleteFile(info.videoPath) }
     }
 
+    suspend fun clearAllDownloadHistory(deleteFiles: Boolean = false) {
+        if (deleteFiles) {
+            val list = dao.getDownloadHistory()
+            list.forEach { info -> FileUtil.deleteFile(info.videoPath) }
+        }
+        dao.deleteAllDownloadHistory()
+    }
+
     suspend fun getInfoById(id: Int): DownloadedVideoInfo = dao.getInfoById(id)
 
     suspend fun deleteInfoById(id: Int) = dao.deleteInfoById(id)

@@ -453,4 +453,7 @@
         <item quantity="one">%d audio</item>
         <item quantity="other">%d audios</item>
     </plurals>
+    <string name="clear_history">Clear history</string>
+    <string name="clear_history_msg">Are you sure you want to clear all download history?</string>
+    <string name="download_history_cleared">Download history cleared</string>
 </resources>

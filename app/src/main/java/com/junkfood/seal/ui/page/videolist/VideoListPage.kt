@@ -1,8 +1,6 @@
 package com.junkfood.seal.ui.page.videolist
 
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -29,10 +27,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.BottomAppBar
@@ -68,7 +64,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -76,17 +71,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.state.ToggleableState
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.junkfood.seal.App
 import com.junkfood.seal.R
-import com.junkfood.seal.database.backup.BackupUtil
-import com.junkfood.seal.database.backup.BackupUtil.BackupDestination.Clipboard
-import com.junkfood.seal.database.backup.BackupUtil.BackupDestination.File
-import com.junkfood.seal.database.backup.BackupUtil.toJsonString
-import com.junkfood.seal.database.backup.BackupUtil.toURLListString
 import com.junkfood.seal.database.objects.DownloadedVideoInfo
 import com.junkfood.seal.ui.common.HapticFeedback.slightHapticFeedback
 import com.junkfood.seal.ui.common.LocalWindowWidthState
@@ -161,7 +150,6 @@ fun VideoListPage(
     val softKeyboardController = LocalSoftwareKeyboardController.current
     val view = LocalView.current
     val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
 
     val fileSizeMap by
         viewModel.fileSizeMapFlow.collectAsStateWithLifecycle(initialValue = emptyMap())
@@ -173,8 +161,8 @@ fun VideoListPage(
     var isSelectEnabled by remember { mutableStateOf(false) }
     var showRemoveMultipleItemsDialog by remember { mutableStateOf(false) }
 
-    var showExportDialog by remember { mutableStateOf(false) }
-    var showImportDialog by remember { mutableStateOf(false) }
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var deleteHistoryFiles by remember { mutableStateOf(false) }
 
     val lazyListState = rememberLazyListState()
 
@@ -317,53 +305,35 @@ fun VideoListPage(
                                     contentDescription = stringResource(R.string.search),
                                 )
                             }
-                        }
-                        var expanded by remember { mutableStateOf(false) }
-                        Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
-                            IconButton(onClick = { expanded = true }) {
-                                Icon(
-                                    imageVector = Icons.Outlined.MoreVert,
-                                    contentDescription =
-                                        stringResource(id = R.string.show_more_actions),
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = expanded,
-                                onDismissRequest = { expanded = false },
-                            ) {
-                                if (visibleItemCount.intValue > 0) {
+                            var expanded by remember { mutableStateOf(false) }
+                            Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
+                                IconButton(onClick = { expanded = true }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.MoreVert,
+                                        contentDescription =
+                                            stringResource(id = R.string.show_more_actions),
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false },
+                                ) {
                                     DropdownMenuItem(
                                         leadingIcon = {
                                             Icon(
-                                                imageVector =
-                                                    Icons.AutoMirrored.Outlined.DriveFileMove,
+                                                imageVector = Icons.Outlined.DeleteSweep,
                                                 contentDescription = null,
                                             )
                                         },
                                         text = {
-                                            Text(text = stringResource(id = R.string.export_backup))
+                                            Text(text = stringResource(id = R.string.clear_history))
                                         },
                                         onClick = {
-                                            showExportDialog = true
+                                            showClearHistoryDialog = true
                                             expanded = false
                                         },
                                     )
                                 }
-                                DropdownMenuItem(
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Restore,
-                                            contentDescription = null,
-                                        )
-                                    },
-                                    text = {
-                                        Text(text = stringResource(id = R.string.import_backup))
-                                    },
-                                    onClick = {
-                                        showImportDialog = true
-                                        expanded = false
-                                    },
-                                )
                             }
                         }
                     }
@@ -498,36 +468,18 @@ fun VideoListPage(
                                         expanded = expanded,
                                         onDismissRequest = { expanded = false },
                                     ) {
-                                        if (visibleItemCount.intValue > 0) {
-                                            DropdownMenuItem(
-                                                leadingIcon = {
-                                                    Icon(
-                                                        imageVector =
-                                                            Icons.AutoMirrored.Outlined.DriveFileMove,
-                                                        contentDescription = null,
-                                                    )
-                                                },
-                                                text = {
-                                                    Text(text = stringResource(id = R.string.export_backup))
-                                                },
-                                                onClick = {
-                                                    showExportDialog = true
-                                                    expanded = false
-                                                },
-                                            )
-                                        }
                                         DropdownMenuItem(
                                             leadingIcon = {
                                                 Icon(
-                                                    imageVector = Icons.Outlined.Restore,
+                                                    imageVector = Icons.Outlined.DeleteSweep,
                                                     contentDescription = null,
                                                 )
                                             },
                                             text = {
-                                                Text(text = stringResource(id = R.string.import_backup))
+                                                Text(text = stringResource(id = R.string.clear_history))
                                             },
                                             onClick = {
-                                                showImportDialog = true
+                                                showClearHistoryDialog = true
                                                 expanded = false
                                             },
                                         )
@@ -665,86 +617,39 @@ fun VideoListPage(
         )
     }
 
-    var backupString by remember { mutableStateOf("") }
-
-    val exportLauncher =
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.CreateDocument("text/plain")
-        ) { uri ->
-            uri?.let {
-                scope.launch(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)?.use {
-                        it.write(backupString.toByteArray())
-                    }
-                    withContext(Dispatchers.Main) { showExportDialog = false }
-                }
-            }
-        }
-
-    if (showExportDialog) {
-        val list =
-            if (selectedItemIds.isNotEmpty()) {
-                videoList.filter { selectedItemIds.contains(it.id) }
-            } else {
-                videoList.filter { it.filterSort(viewState, filterSet) }
-            }
-
-        ExportDialog(onDismissRequest = { showExportDialog = false }, itemCount = list.size) {
-            type,
-            destination ->
-            list.backupToString(type).let {
-                when (destination) {
-                    Clipboard -> clipboardManager.setText(AnnotatedString(it))
-                    File -> {
-                        backupString = it
-                        exportLauncher.launch(
-                            BackupUtil.getDownloadHistoryExportFilename(context = context)
-                        )
+    if (showClearHistoryDialog) {
+        SealDialog(
+            onDismissRequest = { showClearHistoryDialog = false },
+            icon = { Icon(Icons.Outlined.DeleteSweep, null) },
+            title = { Text(stringResource(R.string.clear_history)) },
+            text = {
+                Column {
+                    Text(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                        text = stringResource(R.string.clear_history_msg),
+                    )
+                    CheckBoxItem(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        text = stringResource(R.string.delete_file),
+                        checked = deleteHistoryFiles,
+                    ) {
+                        deleteHistoryFiles = !deleteHistoryFiles
                     }
                 }
-                view.slightHapticFeedback()
-                showExportDialog = false
-            }
-        }
-    }
-
-    val importLauncher =
-        rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri ->
-            uri?.let {
-                viewModel.importBackupFromUri(context, uri) {
-                    viewModel.showImportedSnackbar(hostState, context, it)
-                }
-            }
-        }
-
-    if (showImportDialog) {
-
-        ImportDialog(onDismissRequest = { showImportDialog = false }) { destination ->
-            scope.launch {
-                when (destination) {
-                    Clipboard -> {
-                        clipboardManager.getText()?.text?.let { str ->
-                            viewModel.importBackupFromText(str) {
-                                viewModel.showImportedSnackbar(hostState, context, it)
-                            }
-                        }
+            },
+            confirmButton = {
+                ConfirmButton {
+                    viewModel.clearAllHistory(deleteFiles = deleteHistoryFiles)
+                    selectedItemIds.clear()
+                    isSelectEnabled = false
+                    if (viewState.isSearching) {
+                        viewModel.toggleSearch(false)
                     }
-
-                    File -> {
-                        importLauncher.launch("text/plain")
-                    }
+                    showClearHistoryDialog = false
+                    ToastUtil.makeToast(R.string.download_history_cleared)
                 }
-            }
-            view.slightHapticFeedback()
-            showImportDialog = false
-        }
-    }
-}
-
-private fun List<DownloadedVideoInfo>.backupToString(type: BackupUtil.BackupType): String {
-    return when (type) {
-        BackupUtil.BackupType.DownloadHistory -> reversed().toJsonString()
-        BackupUtil.BackupType.URLList -> toURLListString()
-        else -> throw IllegalArgumentException()
+            },
+            dismissButton = { DismissButton { showClearHistoryDialog = false } },
+        )
     }
 }

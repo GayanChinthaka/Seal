@@ -94,6 +94,12 @@ class VideoListViewModel : ViewModel() {
         }
     }
 
+    fun clearAllHistory(deleteFiles: Boolean = false) {
+        viewModelScope.launch(Dispatchers.IO) {
+            DatabaseUtil.clearAllDownloadHistory(deleteFiles = deleteFiles)
+        }
+    }
+
     fun importBackupFromUri(context: Context, uri: Uri, onComplete: suspend (Int) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             var res = 0
