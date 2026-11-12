@@ -26,6 +26,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The signing secrets are stored in this environment
+    environment: Release
     permissions:
       contents: write
     steps:
@@ -92,6 +94,9 @@ jobs:
               echo "keyPassword=$KEY_PASSWORD"
             } > keystore.properties
             echo "Release keystore set up."
+          elif [ "${{ github.ref_type }}" = "tag" ] || [ "${{ inputs.publish_release }}" = "true" ]; then
+            echo "::error::Signing secrets are missing from the Release environment. A release signed with a temporary key could not update an installed app."
+            exit 1
           else
             echo "::warning::Signing secrets are not set. The APKs are signed with a temporary debug key and cannot update an installed release."
           fi
