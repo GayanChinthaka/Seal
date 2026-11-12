@@ -60,6 +60,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.junkfood.seal.R
+import com.junkfood.seal.download.DownloadProgressTracker.PartKind
+import com.junkfood.seal.download.DownloadProgressTracker.Phase
 import com.junkfood.seal.download.Task
 import com.junkfood.seal.download.Task.DownloadState.Canceled
 import com.junkfood.seal.download.Task.DownloadState.Completed
@@ -378,9 +380,13 @@ private fun VideoInfoLabel(
 ) {
     val fileSizeText =
         when {
-            downloadState is Task.DownloadState.Running && fileSizeApprox > 0.0 -> {
-                val currentDownloaded = fileSizeApprox * downloadState.progress.coerceIn(0f, 1f)
-                currentDownloaded.toFileSizeText()
+            downloadState is Running && downloadState.downloadedBytes > 0.0 -> {
+                val downloaded = downloadState.downloadedBytes.toFileSizeText()
+                if (downloadState.totalBytes > 0.0) {
+                    "$downloaded / ${downloadState.totalBytes.toFileSizeText()}"
+                } else {
+                    downloaded
+                }
             }
             fileSizeApprox > 0.0 -> fileSizeApprox.toFileSizeText()
             else -> ""
@@ -406,6 +412,27 @@ private fun VideoInfoLabel(
                 color = Color.White,
             )
         }
+    }
+}
+
+/** Resource of the text that names what a running task is doing */
+private val Running.statusTextId: Int
+    get() =
+        when (phase) {
+            Phase.Downloading -> R.string.status_downloading
+            Phase.Merging -> R.string.status_merging
+            Phase.Processing -> R.string.status_processing
+        }
+
+/** @return the file being downloaded, e.g. "Video 1/2", when the task has several */
+@Composable
+private fun Running.partText(): String? {
+    if (phase != Phase.Downloading || partIndex <= 0 || partCount <= 1) return null
+    val position = "$partIndex/$partCount"
+    return when (partKind) {
+        PartKind.Video -> "${stringResource(R.string.video)} $position"
+        PartKind.Audio -> "${stringResource(R.string.audio)} $position"
+        PartKind.Unknown -> position
     }
 }
 
@@ -449,16 +476,17 @@ fun ListItemStateText(
                 is Running -> {
                     val progress = downloadState.progress
                     val progressString =
-                        if (progress >= 0) {
-                            "%.1f %%".format(downloadState.progress * 100)
+                        if (downloadState.phase == Phase.Downloading && progress >= 0) {
+                            "%.1f %%".format(progress * 100)
                         } else {
-                            stringResource(R.string.status_downloading)
+                            stringResource(downloadState.statusTextId)
                         }
-                    if (downloadState.speedText.isNotEmpty()) {
-                        "$progressString  •  ${downloadState.speedText}"
-                    } else {
-                        progressString
-                    }
+                    listOfNotNull(
+                            progressString,
+                            downloadState.partText(),
+                            downloadState.speedText.takeIf { it.isNotEmpty() },
+                        )
+                        .joinToString(separator = "  •  ")
                 }
             }
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -495,11 +523,15 @@ fun ListItemStateText(
                 }
                 is Running -> {
                     val progress = downloadState.progress
-                    CircularProgressIndicator(
-                        progress = { progress },
-                        modifier = sizeModifier,
-                        strokeWidth = 2.5.dp,
-                    )
+                    if (downloadState.phase == Phase.Downloading && progress >= 0) {
+                        CircularProgressIndicator(
+                            progress = { progress },
+                            modifier = sizeModifier,
+                            strokeWidth = 2.5.dp,
+                        )
+                    } else {
+                        CircularProgressIndicator(modifier = sizeModifier, strokeWidth = 2.5.dp)
+                    }
                 }
             }
 
@@ -532,7 +564,7 @@ private fun CardItemStateText(modifier: Modifier = Modifier, downloadState: Task
             is FetchingInfo -> R.string.status_fetching_video_info
             Idle -> R.string.status_enqueued
             ReadyWithInfo -> R.string.status_enqueued
-            is Running -> R.string.status_downloading
+            is Running -> downloadState.statusTextId
         }
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         if (downloadState is Error) {
@@ -584,15 +616,30 @@ fun ActionButton(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                ProgressButton(modifier = Modifier, progress = downloadState.progress) {
+                val downloading = downloadState.phase == Phase.Downloading
+                // Merging has no progress of its own, a spinning circle shows that it is at work
+                ProgressButton(
+                    modifier = Modifier,
+                    progress = if (downloading) downloadState.progress else -1f,
+                ) {
                     onActionPost(UiAction.Cancel)
                 }
-                if (downloadState.speedText.isNotEmpty()) {
+                val label =
+                    if (downloading) {
+                        listOfNotNull(
+                                downloadState.partText(),
+                                downloadState.speedText.takeIf { it.isNotEmpty() },
+                            )
+                            .joinToString(separator = "  •  ")
+                    } else {
+                        stringResource(downloadState.statusTextId)
+                    }
+                if (label.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Surface(color = LabelContainerColor, shape = MaterialTheme.shapes.extraSmall) {
                         Text(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            text = downloadState.speedText,
+                            text = label,
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
                         )

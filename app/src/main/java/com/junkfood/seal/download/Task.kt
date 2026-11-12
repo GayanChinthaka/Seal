@@ -1,6 +1,8 @@
 package com.junkfood.seal.download
 
 import com.junkfood.seal.database.objects.CommandTemplate
+import com.junkfood.seal.download.DownloadProgressTracker.PartKind
+import com.junkfood.seal.download.DownloadProgressTracker.Phase
 import com.junkfood.seal.download.Task.TypeInfo
 import com.junkfood.seal.download.Task.ViewState
 import com.junkfood.seal.util.DownloadUtil
@@ -62,6 +64,7 @@ data class Task(
 
         interface Cancelable {
             val job: Job
+            /** Id of the yt-dlp process of this run. Every run of a task gets its own. */
             val taskId: String
             val action: RestartableAction
         }
@@ -89,6 +92,15 @@ data class Task(
             val progress: Float = PROGRESS_INDETERMINATE,
             val progressText: String = "",
             val speedText: String = "",
+            /** Bytes downloaded so far, over all files of the task */
+            val downloadedBytes: Double = 0.0,
+            /** Size of all files of the task, or `0.0` when it is not known */
+            val totalBytes: Double = 0.0,
+            /** 1-based index of the file being downloaded, or `0` when it is not known */
+            val partIndex: Int = 0,
+            val partCount: Int = 0,
+            val partKind: PartKind = PartKind.Unknown,
+            val phase: Phase = Phase.Downloading,
         ) : DownloadState, Cancelable {
             override val action: RestartableAction = RestartableAction.Download
         }

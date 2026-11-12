@@ -401,7 +401,6 @@ fun DownloadPageImplV2(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Spacer(Modifier.height(with(LocalDensity.current) { headerOffset.toDp() }))
                     Header(
-                        onMenuOpen = onMenuOpen,
                         onSettingsClick = { showSettingsMenu = true },
                         isIncognito = isIncognito,
                         onToggleIncognito = {
@@ -626,7 +625,6 @@ fun DownloadPageImplV2(
 @Composable
 fun Header(
     modifier: Modifier = Modifier,
-    onMenuOpen: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     isIncognito: Boolean = false,
     onToggleIncognito: () -> Unit = {},
@@ -644,7 +642,6 @@ fun Header(
         else -> {
             HeaderCompact(
                 modifier = modifier,
-                onMenuOpen = onMenuOpen,
                 onSettingsClick = onSettingsClick,
                 isIncognito = isIncognito,
                 onToggleIncognito = onToggleIncognito,
@@ -656,7 +653,6 @@ fun Header(
 @Composable
 private fun HeaderCompact(
     modifier: Modifier = Modifier,
-    onMenuOpen: () -> Unit,
     onSettingsClick: () -> Unit,
     isIncognito: Boolean,
     onToggleIncognito: () -> Unit,
@@ -667,14 +663,6 @@ private fun HeaderCompact(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onMenuOpen, modifier = Modifier) {
-                Icon(
-                    imageVector = Icons.Outlined.Menu,
-                    contentDescription = stringResource(R.string.show_navigation_drawer),
-                    modifier = Modifier,
-                )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 "Seal",
                 style =
@@ -685,12 +673,6 @@ private fun HeaderCompact(
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onSettingsClick) {
-                Icon(
-                    imageVector = Icons.Outlined.Settings,
-                    contentDescription = stringResource(R.string.settings),
-                )
-            }
             IconButton(
                 onClick = onToggleIncognito,
                 colors =
@@ -707,6 +689,12 @@ private fun HeaderCompact(
                     painter = painterResource(id = R.drawable.ic_incognito),
                     contentDescription = stringResource(R.string.private_mode),
                     modifier = Modifier.size(20.dp),
+                )
+            }
+            IconButton(onClick = onSettingsClick) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = stringResource(R.string.settings),
                 )
             }
         }
@@ -726,19 +714,12 @@ private fun HeaderExpanded(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 "Seal",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onSettingsClick) {
-                Icon(
-                    imageVector = Icons.Outlined.Settings,
-                    contentDescription = stringResource(R.string.settings),
-                )
-            }
             IconButton(
                 onClick = onToggleIncognito,
                 colors =
@@ -755,6 +736,12 @@ private fun HeaderExpanded(
                     painter = painterResource(id = R.drawable.ic_incognito),
                     contentDescription = stringResource(R.string.private_mode),
                     modifier = Modifier.size(20.dp),
+                )
+            }
+            IconButton(onClick = onSettingsClick) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = stringResource(R.string.settings),
                 )
             }
         }

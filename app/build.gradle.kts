@@ -142,6 +142,12 @@ ktfmt { kotlinLangStyle() }
 
 kotlin { jvmToolchain(21) }
 
+// Used by the release workflow to name the release
+tasks.register("printVersionName") {
+    val versionName = baseVersionName
+    doLast { println(versionName) }
+}
+
 dependencies {
     implementation(project(":color"))
 

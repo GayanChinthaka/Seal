@@ -103,11 +103,23 @@ object FileUtil {
             if (!File(path).delete()) DocumentFile.fromSingleUri(context, Uri.parse(this))?.delete()
         }
 
+    fun scanFilesToMediaLibrary(paths: List<String>): List<String> =
+        paths.also { MediaScannerConnection.scanFile(context, it.toTypedArray(), null, null) }
+
+    /** Files that yt-dlp leaves behind for a download that is not finished */
+    private fun File.isPartialDownload(): Boolean =
+        name.endsWith(".part") || name.endsWith(".ytdl") || name.contains(".part-Frag")
+
+    /** @return the files in [downloadDir] that belong to [title], the most recent one first */
     @CheckResult
-    fun scanFileToMediaLibraryPostDownload(title: String, downloadDir: String): List<String> =
-        File(downloadDir)
+    fun scanFileToMediaLibraryPostDownload(title: String, downloadDir: String): List<String> {
+        // The temporary directory is inside the default download directory
+        val tempDir = getExternalTempDir().absolutePath
+        return File(downloadDir)
             .walkTopDown()
-            .filter { it.isFile && it.absolutePath.contains(title) }
+            .onEnter { it.absolutePath != tempDir }
+            .filter { it.isFile && it.absolutePath.contains(title) && !it.isPartialDownload() }
+            .sortedByDescending { it.lastModified() }
             .map { it.absolutePath }
             .toMutableList()
             .apply {
@@ -116,6 +128,7 @@ object FileUtil {
                     it.contains(Regex(THUMBNAIL_REGEX)) || it.contains(Regex(SUBTITLE_REGEX))
                 }
             }
+    }
 
     fun scanDownloadDirectoryToMediaLibrary(downloadDir: String) =
         File(downloadDir)

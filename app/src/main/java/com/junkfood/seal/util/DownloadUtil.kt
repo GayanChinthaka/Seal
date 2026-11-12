@@ -21,6 +21,7 @@ import com.junkfood.seal.Downloader.toNotificationId
 import com.junkfood.seal.R
 import com.junkfood.seal.database.objects.CommandTemplate
 import com.junkfood.seal.database.objects.DownloadedVideoInfo
+import com.junkfood.seal.download.DownloadProgressTracker
 import com.junkfood.seal.ui.page.settings.network.Cookie
 import com.junkfood.seal.util.FileUtil.getArchiveFile
 import com.junkfood.seal.util.FileUtil.getConfigFile
@@ -42,6 +43,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.File
+import java.security.MessageDigest
 import java.util.Locale
 
 object DownloadUtil {
@@ -96,6 +99,7 @@ object DownloadUtil {
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
                 addOption("-o", BASENAME)
+                useCacheDir()
                 addOption("-R", "1")
                 addOption("--socket-timeout", "5")
                 downloadPreferences.run {
@@ -133,8 +137,59 @@ object DownloadUtil {
         request.runCatching {
             val response: YoutubeDLResponse =
                 YoutubeDL.getInstance().execute(request, taskKey, null)
-            jsonFormat.decodeFromString(response.out)
+            jsonFormat.decodeFromString<VideoInfo>(response.out).also {
+                cacheInfoJson(videoInfo = it, json = response.out)
+            }
         }
+
+    /**
+     * The library passes `--no-cache-dir` to yt-dlp unless a cache directory is set. Without the
+     * cache, yt-dlp has to download and parse the player script of some sites on every single run.
+     */
+    private fun YoutubeDLRequest.useCacheDir(): YoutubeDLRequest =
+        addOption("--cache-dir", File(context.cacheDir, "yt-dlp").absolutePath)
+
+    private const val INFO_JSON_DIRECTORY = "info_json"
+
+    /** Media URLs in the info expire, mostly after a few hours */
+    private const val INFO_JSON_MAX_AGE_MILLIS = 30 * 60 * 1000L
+
+    private fun VideoInfo.infoJsonFile(): File {
+        val key = "$extractorKey|$id|${originalUrl ?: webpageUrl}"
+        val digest = MessageDigest.getInstance("SHA-1").digest(key.toByteArray())
+        val name = digest.joinToString(separator = "") { "%02x".format(it) }
+        return File(File(context.cacheDir, INFO_JSON_DIRECTORY), "$name.json")
+    }
+
+    /**
+     * Keeps the info printed by yt-dlp, so that [downloadVideo] can hand it back with
+     * `--load-info-json` and the download starts without extracting the same page again.
+     */
+    private fun cacheInfoJson(videoInfo: VideoInfo, json: String) {
+        runCatching {
+            // Only single videos can be loaded back in a predictable way
+            if (videoInfo.type != null && videoInfo.type != "video") return
+            if (videoInfo.id.isEmpty()) return
+            val file = videoInfo.infoJsonFile()
+            val directory = file.parentFile ?: return
+            directory.mkdirs()
+            val now = System.currentTimeMillis()
+            directory.listFiles()?.forEach {
+                if (now - it.lastModified() > INFO_JSON_MAX_AGE_MILLIS) it.delete()
+            }
+            file.writeText(json)
+        }
+    }
+
+    private fun getCachedInfoJson(videoInfo: VideoInfo): File? =
+        runCatching {
+                videoInfo.infoJsonFile().takeIf {
+                    it.isFile &&
+                        it.length() > 0 &&
+                        System.currentTimeMillis() - it.lastModified() < INFO_JSON_MAX_AGE_MILLIS
+                }
+            }
+            .getOrNull()
 
     @CheckResult
     fun fetchVideoInfoFromUrl(
@@ -147,6 +202,7 @@ object DownloadUtil {
             val request =
                 YoutubeDLRequest(url).apply {
                     addOption("-o", BASENAME)
+                    useCacheDir()
                     if (restrictFilenames) {
                         addOption("--restrict-filenames")
                     }
@@ -663,10 +719,18 @@ object DownloadUtil {
         playlistItem: Int = 0,
         taskId: String,
         downloadPreferences: DownloadPreferences,
+        useCachedInfo: Boolean = true,
+        shouldRetry: () -> Boolean = { true },
         progressCallback: ((Float, Long, String) -> Unit)?,
     ): Result<List<String>> {
         if (videoInfo == null)
             return Result.failure(Throwable(context.getString(R.string.fetch_info_error_msg)))
+
+        val cachedInfoJson =
+            if (useCachedInfo && playlistUrl.isEmpty()) getCachedInfoJson(videoInfo) else null
+        // yt-dlp writes the path of the finished file here
+        val finalPathFile =
+            runCatching { File.createTempFile("filepath", ".txt", context.cacheDir) }.getOrNull()
 
         with(downloadPreferences) {
             val url =
@@ -684,6 +748,20 @@ object DownloadUtil {
             request
                 .apply {
                     addOption("--no-mtime")
+                    useCacheDir()
+                    addOption("--progress-template", DownloadProgressTracker.PROGRESS_TEMPLATE)
+                    if (cachedInfoJson != null) {
+                        addOption("--load-info-json", cachedInfoJson.absolutePath)
+                    }
+                    if (finalPathFile != null) {
+                        addCommands(
+                            listOf(
+                                "--print-to-file",
+                                "after_move:filepath",
+                                finalPathFile.absolutePath.replace("%", "%%"),
+                            )
+                        )
+                    }
                     //                addOption("-v")
                     if (cookies) {
                         enableCookies(userAgentString)
@@ -704,6 +782,7 @@ object DownloadUtil {
                         val archiveFile = context.getArchiveFile()
                         val archiveFileContent = archiveFile.readText()
                         if (archiveFileContent.contains("${videoInfo.extractor} ${videoInfo.id}")) {
+                            finalPathFile?.delete()
                             return Result.failure(
                                 YoutubeDLException(
                                     context.getString(R.string.download_archive_error)
@@ -812,23 +891,62 @@ object DownloadUtil {
                             videoInfo = videoInfo,
                             downloadPath = pathBuilder.toString(),
                             sdcardUri = sdcardUri,
+                            finalPath = readFinalPath(finalPathFile),
                         )
-                    } else Result.failure(th)
+                    } else {
+                        finalPathFile?.delete()
+                        if (
+                            cachedInfoJson != null &&
+                                th !is YoutubeDL.CanceledException &&
+                                shouldRetry()
+                        ) {
+                            // The cached info may be stale, extract it from the URL this time
+                            Log.w(TAG, "Download with cached info failed, retrying with URL", th)
+                            cachedInfoJson.delete()
+                            downloadVideo(
+                                videoInfo = videoInfo,
+                                playlistUrl = playlistUrl,
+                                playlistItem = playlistItem,
+                                taskId = taskId,
+                                downloadPreferences = downloadPreferences,
+                                useCachedInfo = false,
+                                shouldRetry = shouldRetry,
+                                progressCallback = progressCallback,
+                            )
+                        } else {
+                            Result.failure(th)
+                        }
+                    }
                 }
             return onFinishDownloading(
                 preferences = this,
                 videoInfo = videoInfo,
                 downloadPath = pathBuilder.toString(),
                 sdcardUri = sdcardUri,
+                finalPath = readFinalPath(finalPathFile),
             )
         }
     }
+
+    /** @return the path that yt-dlp reported for the finished file, if that file exists */
+    private fun readFinalPath(finalPathFile: File?): String? =
+        runCatching {
+                finalPathFile
+                    ?.takeIf { it.isFile }
+                    ?.readLines()
+                    ?.lastOrNull { it.isNotBlank() }
+                    ?.trim()
+                    ?.takeIf { File(it).isFile }
+            }
+            .getOrNull()
+            .also { finalPathFile?.delete() }
 
     private fun onFinishDownloading(
         preferences: DownloadPreferences,
         videoInfo: VideoInfo,
         downloadPath: String,
         sdcardUri: String,
+        finalPath: String? = null,
     ): Result<List<String>> =
         preferences.run {
             val fileName =
@@ -854,10 +972,17 @@ object DownloadUtil {
                         }
                     }
             } else {
-                FileUtil.scanFileToMediaLibraryPostDownload(
-                        title = fileName,
-                        downloadDir = downloadPath,
-                    )
+                val downloadedFiles =
+                    if (finalPath != null && !splitByChapter) {
+                        // Trust yt-dlp over a search by title, which can match other files
+                        FileUtil.scanFilesToMediaLibrary(listOf(finalPath))
+                    } else {
+                        FileUtil.scanFileToMediaLibraryPostDownload(
+                            title = fileName,
+                            downloadDir = downloadPath,
+                        )
+                    }
+                downloadedFiles
                     .run {
                         if (privateMode) Result.success(emptyList())
                         else
